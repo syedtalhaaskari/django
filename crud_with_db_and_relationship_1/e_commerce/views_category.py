@@ -1,13 +1,15 @@
 from rest_framework.response import Response
 from rest_framework.request import Request
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
+from rest_framework.permissions import AllowAny
 
 from .models import Category as category_model
 from .serializers import CategorySerializer
 
 
 @api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
 def get_categories_or_create_category(requst: Request):
     if requst.method == 'GET':
         params = requst.query_params
