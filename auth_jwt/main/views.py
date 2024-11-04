@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.contrib.auth.hashers import make_password
 
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -29,12 +30,61 @@ def login_view(request: Request):
 
     if user is not None:
         refresh = RefreshToken.for_user(user)
-        return Response({
+        response_data = {
             'refresh': str(refresh),
-            'accesss': str(refresh.access_token),
-        }, status=status.HTTP_200_OK)
+            'access': str(refresh.access_token),
+        }
+        response = Response()
+        response.data = response_data
+        response.status = status.HTTP_201_CREATED
+        response.set_cookie(
+            key='refresh_token',
+            value=response_data['refresh'],
+            secure=True,
+            httponly=True,
+        )
+        response.set_cookie(
+            key='access_token',
+            value=response_data['access'],
+            secure=True,
+            httponly=True,
+        )
+        return response
     return Response({'error':'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
 
 @api_view(['POST'])
 def logout_view(request: Request):
-    return Response({'message': "Logged out successfully."}, status=status.HTTP_200_OK)
+    try:
+        refresh_token = request.data.get('refresh')
+
+        token = RefreshToken(refresh_token)
+        token.blacklist()
+
+        return Response({'detail': "Logged out successfully."}, status=status.HTTP_205_RESET_CONTENT)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def signup_view(request: Request):
+    try:
+        data = request.data
+        user_obj = {
+            'username': data['username'],
+            'password': data['password'],
+        }
+
+        # Creating a User and Password Using set_password()
+        # user = User(
+        #     username=user_obj['username'],
+        # )
+        # user.set_password(user_obj['password'])
+        # user.save()
+
+        # Using make_password() to Manually Hash a Password
+        user_obj['password'] = make_password(user_obj['password'])
+        User.objects.create(**user_obj)
+
+        return Response({ 'success': user_obj }, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
